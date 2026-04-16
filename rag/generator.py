@@ -19,7 +19,7 @@ from rag.retriever import SearchResult
 class Generator:
     """回答生成器"""
 
-    def __init__(self, provider: Optional[str] = None, timeout: int = 30):
+    def __init__(self, provider: Optional[str] = None, timeout: int = 120):
         """
         Args:
             provider: LLM提供商 "deepseek" 或 "openai"
@@ -51,7 +51,7 @@ class Generator:
                     openai_api_base=settings.llm.deepseek_base_url,
                     temperature=0.3,
                     max_tokens=2048,
-                    request_timeout=self.timeout,
+                    request_timeout=(30, self.timeout),
                 )
                 logger.info(f"LLM已加载: DeepSeek ({settings.llm.deepseek_model})")
             elif self.provider == "openai":
@@ -62,7 +62,7 @@ class Generator:
                     openai_api_base=settings.llm.openai_base_url,
                     temperature=0.3,
                     max_tokens=2048,
-                    request_timeout=self.timeout,
+                    request_timeout=(30, self.timeout),
                 )
                 logger.info(f"LLM已加载: OpenAI ({settings.llm.openai_model})")
             else:
