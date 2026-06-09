@@ -53,6 +53,13 @@ npm run build
 
 ### 5. 启动服务
 
+
+日常使用（一条命令）：
+cd d:\code\aa-my-idea\school-rag
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000
+然后浏览器访问 http://127.0.0.1:8000 （推荐用 127.0.0.1 而非 localhost，避免代理干扰）
+
+
 ```bash
 # 生产模式（前后端一体）
 python -m uvicorn api.main:app --host 0.0.0.0 --port 8000

@@ -74,7 +74,7 @@ class RAGChain:
         self.generator = generator or Generator(provider=llm_provider)
         logger.info("RAGChain初始化完成")
 
-    def ask(self, query: str, top_k: int = 8,
+    def ask(self, query: str, top_k: int = 5,
             filter_site: Optional[str] = None,
             filter_type: Optional[str] = None) -> RAGResponse:
         """执行完整的RAG流程：检索 + 生成
@@ -116,7 +116,7 @@ class RAGChain:
             generate_time_ms=generate_ms,
         )
 
-    def ask_stream(self, query: str, top_k: int = 8,
+    def ask_stream(self, query: str, top_k: int = 5,
                    filter_site: Optional[str] = None,
                    filter_type: Optional[str] = None):
         """流式RAG流程：检索 + 流式生成
@@ -147,7 +147,7 @@ class RAGChain:
         else:
             yield gen_result["answer"]
 
-    def search_only(self, query: str, top_k: int = 8,
+    def search_only(self, query: str, top_k: int = 5,
                     filter_site: Optional[str] = None,
                     filter_type: Optional[str] = None) -> list[SearchResult]:
         """仅检索，不调用LLM生成
@@ -160,3 +160,23 @@ class RAGChain:
             filter_site=filter_site,
             filter_type=filter_type,
         )
+
+    def generate_stream(self, query: str, results: list[SearchResult]):
+        """用已有检索结果做流式生成（不重复检索）
+
+        适用于：SSE场景，先检索推送元数据，再流式生成
+
+        Args:
+            query: 用户查询
+            results: 已完成的检索结果
+
+        Yields:
+            流式输出的文本片段
+        """
+        gen_result = self.generator.generate(query=query, results=results, stream=True)
+
+        if "answer_stream" in gen_result:
+            for chunk in gen_result["answer_stream"]:
+                yield chunk
+        else:
+            yield gen_result["answer"]

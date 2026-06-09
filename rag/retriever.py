@@ -60,7 +60,7 @@ class Retriever:
 
     def __init__(self, embedder: Optional[Embedder] = None,
                  vector_store: Optional[VectorStore] = None,
-                 default_top_k: int = 8,
+                 default_top_k: int = 5,
                  score_threshold: float = 0.3,
                  deduplicate: bool = True):
         """
@@ -107,8 +107,8 @@ class Retriever:
         query_text = f"为这个句子生成表示以用于检索相关文章：{query}"
         query_embedding = self.embedder.embed_query(query_text)
 
-        # 向量检索（多取一些，去重后可能减少）
-        search_k = top_k * 2 if self.deduplicate else top_k
+        # 向量检索（去重时多取50%，而非2倍，减少检索开销）
+        search_k = int(top_k * 1.5) if self.deduplicate else top_k
         raw_results = self.vector_store.search(
             query_embedding=query_embedding,
             top_k=search_k,

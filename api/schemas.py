@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 class SearchRequest(BaseModel):
     """搜索请求"""
     query: str = Field(..., min_length=1, max_length=500, description="搜索查询")
-    top_k: int = Field(default=8, ge=1, le=20, description="返回结果数")
+    top_k: int = Field(default=5, ge=1, le=20, description="返回结果数")
     filter_site: Optional[str] = Field(default=None, description="按站点过滤")
     filter_type: Optional[str] = Field(default=None, description="按类型过滤(html/pdf)")
     use_llm: bool = Field(default=True, description="是否使用LLM生成摘要")

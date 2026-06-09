@@ -25,49 +25,84 @@ export async function search(req: SearchRequest): Promise<SearchResponse> {
   return data
 }
 
-export async function searchStream(req: SearchRequest): AsyncGenerator<string> {
-  const response = await fetch('/api/search/stream', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req),
-  })
+/** 流式搜索 - 返回一个可取消的流式控制器 */
+export function searchStream(
+  req: SearchRequest,
+  onMeta: (meta: { retrieve_time_ms: number; sources: any[]; results: any[]; has_llm: boolean }) => void,
+  onToken: (token: string) => void,
+  onDone: (generate_time_ms: number) => void,
+  onError: (error: string) => void,
+): AbortController {
+  const controller = new AbortController()
 
-  if (!response.body) throw new Error('Stream not supported')
+  const doStream = async () => {
+    try {
+      const response = await fetch('/api/search/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+        signal: controller.signal,
+      })
 
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+      if (!response.body) {
+        onError('浏览器不支持流式响应')
+        return
+      }
 
-  async function* generate() {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
 
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim()
-          if (data === '[DONE]') return
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue
+          const raw = line.slice(6).trim()
+          if (!raw) continue
+
           try {
-            const parsed = JSON.parse(data)
-            if (parsed.content) yield parsed.content
-            if (parsed.error) throw new Error(parsed.error)
+            const event = JSON.parse(raw)
+
+            if (event.type === 'meta') {
+              onMeta(event)
+            } else if (event.type === 'token') {
+              onToken(event.content)
+            } else if (event.type === 'done') {
+              onDone(event.generate_time_ms || 0)
+            } else if (event.type === 'error') {
+              onError(event.message || '未知错误')
+            }
           } catch {
-            // skip invalid JSON
+            // 兼容旧格式: data: {"content":"..."}
+            try {
+              const legacy = JSON.parse(raw)
+              if (legacy.content) onToken(legacy.content)
+              if (legacy.error) onError(legacy.error)
+            } catch {
+              // skip
+            }
           }
         }
+      }
+    } catch (e: any) {
+      if (e.name !== 'AbortError') {
+        onError(e.message || '流式请求失败')
       }
     }
   }
 
-  return generate()
+  doStream()
+  return controller
 }
 
-export async function suggest(query: string, topK = 5): Promise<SearchResponse> {
-  const { data } = await api.get<SearchResponse>('/suggest', {
+export async function suggest(query: string, topK = 5): Promise<StatsResponse> {
+  const { data } = await api.get<StatsResponse>('/suggest', {
     params: { q: query, top_k: topK },
   })
   return data

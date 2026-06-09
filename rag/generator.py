@@ -2,7 +2,7 @@
 
 核心功能:
 1. 调用LLM(DeepSeek/OpenAI)生成回答
-2. 将检索结果格式化为Prompt上下文
+2. 将检索结果格式化为Prompt上下文（精简版，减少token）
 3. 确保回答中引用来源链接
 4. 超时保护：LLM超时时返回纯检索结果
 """
@@ -15,15 +15,18 @@ from config.settings import settings
 from rag.prompts import QA_PROMPT_TEMPLATE, NO_RESULT_PROMPT_TEMPLATE, SYSTEM_PROMPT
 from rag.retriever import SearchResult
 
+# 上下文中每个结果的最大字符数（截断过长文本，减少输入token）
+MAX_CONTEXT_CHARS_PER_RESULT = 500
+
 
 class Generator:
     """回答生成器"""
 
-    def __init__(self, provider: Optional[str] = None, timeout: int = 120):
+    def __init__(self, provider: Optional[str] = None, timeout: int = 60):
         """
         Args:
             provider: LLM提供商 "deepseek" 或 "openai"
-            timeout: 生成超时时间(秒)
+            timeout: 生成超时时间(秒)，默认60s
         """
         self.provider = provider or self._detect_provider()
         self.timeout = timeout
@@ -50,8 +53,8 @@ class Generator:
                     openai_api_key=settings.llm.deepseek_api_key,
                     openai_api_base=settings.llm.deepseek_base_url,
                     temperature=0.3,
-                    max_tokens=2048,
-                    request_timeout=(30, self.timeout),
+                    max_tokens=768,       # 从2048降到768，校园问答不需要太长
+                    request_timeout=(10, self.timeout),  # 连接超时10s，读取超时60s
                 )
                 logger.info(f"LLM已加载: DeepSeek ({settings.llm.deepseek_model})")
             elif self.provider == "openai":
@@ -61,8 +64,8 @@ class Generator:
                     openai_api_key=settings.llm.openai_api_key,
                     openai_api_base=settings.llm.openai_base_url,
                     temperature=0.3,
-                    max_tokens=2048,
-                    request_timeout=(30, self.timeout),
+                    max_tokens=768,
+                    request_timeout=(10, self.timeout),
                 )
                 logger.info(f"LLM已加载: OpenAI ({settings.llm.openai_model})")
             else:
@@ -102,7 +105,7 @@ class Generator:
                 "error": None,
             }
 
-        # 格式化上下文
+        # 格式化上下文（精简版）
         context = self._format_context(results)
 
         # 构建Prompt
@@ -165,17 +168,25 @@ class Generator:
                 yield chunk.content
 
     def _format_context(self, results: list[SearchResult]) -> str:
-        """将检索结果格式化为Prompt中的上下文"""
+        """将检索结果格式化为Prompt中的上下文（精简版，截断过长文本）
+
+        优化策略：
+        - 每个结果文本截断到 MAX_CONTEXT_CHARS_PER_RESULT 字符
+        - 去除冗余格式，减少输入token
+        """
         context_parts = []
         for i, r in enumerate(results, 1):
+            # 截断过长文本，显著减少输入token
+            text = r.text[:MAX_CONTEXT_CHARS_PER_RESULT]
+            if len(r.text) > MAX_CONTEXT_CHARS_PER_RESULT:
+                text += "..."
+
             source_label = f"[{r.source_site}]" if r.source_site else ""
             url_label = f"({r.source_url})" if r.source_url else ""
-            date_label = f" (发布日期: {r.publish_date})" if r.publish_date else ""
 
             part = (
-                f"### 文档 {i}{source_label}{date_label}\n"
-                f"标题: {r.title}{url_label}\n"
-                f"内容:\n{r.text}\n"
+                f"文档{i}{source_label}: {r.title}{url_label}\n"
+                f"{text}\n"
             )
             context_parts.append(part)
 
