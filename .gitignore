@@ -13,6 +13,9 @@ env/
 data/raw/
 data/chroma/
 data/metadata.db
+data/metadata.db-shm
+data/metadata.db-wal
+data/bm25/
 
 # IDE
 .idea/

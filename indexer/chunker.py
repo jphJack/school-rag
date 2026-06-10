@@ -179,13 +179,28 @@ class TextChunker:
 
     def _create_chunk(self, doc: ParsedDocument, text: str,
                       chunk_index: int, total_chunks: int) -> Chunk:
-        """创建分块"""
+        """创建分块
+
+        改进：对长文档的分块（chunk_index > 0 或 total_chunks > 1），
+        在文本前添加文档标题作为上下文标题，帮助嵌入模型和LLM理解
+        chunk 所属的文档主题。
+        """
         raw = f"{doc.doc_id}#{chunk_index}"
         chunk_id = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:20]
 
+        # 为多chunk文档添加上下文标题
+        # 当文档被切分为多个chunk时，单个chunk可能缺少上下文信息
+        # 在文本前加上"标题：xxx\n"可以帮助嵌入和LLM理解所属主题
+        chunk_text = text.strip()
+        if total_chunks > 1 and doc.title:
+            # 避免重复添加（原文开头可能已包含标题）
+            title_prefix = f"标题：{doc.title}\n"
+            if not chunk_text.startswith(doc.title):
+                chunk_text = title_prefix + chunk_text
+
         return Chunk(
             chunk_id=chunk_id,
-            text=text.strip(),
+            text=chunk_text,
             doc_id=doc.doc_id,
             chunk_index=chunk_index,
             total_chunks=total_chunks,
