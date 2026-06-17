@@ -16,7 +16,9 @@ from rag.prompts import QA_PROMPT_TEMPLATE, NO_RESULT_PROMPT_TEMPLATE, SYSTEM_PR
 from rag.retriever import SearchResult
 
 # 上下文中每个结果的最大字符数（截断过长文本，减少输入token）
-MAX_CONTEXT_CHARS_PER_RESULT = 500
+# 校园文档关键信息（截止日期、具体条件、链接）往往在文档后半段
+# 500字截断太短容易丢失关键信息，提升到800字
+MAX_CONTEXT_CHARS_PER_RESULT = 800
 
 
 class Generator:

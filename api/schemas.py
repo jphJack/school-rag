@@ -44,6 +44,7 @@ class ResultItem(BaseModel):
     doc_id: str = ""
     chunk_index: int = 0
     total_chunks: int = 1
+    score_source: str = "vector"
 
 
 class SearchResponse(BaseModel):

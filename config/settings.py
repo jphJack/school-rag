@@ -77,6 +77,35 @@ class APISettings(BaseSettings):
         extra = "ignore"
 
 
+class RetrievalSettings(BaseSettings):
+    """检索策略配置"""
+    # 是否启用混合检索（向量+BM25）
+    hybrid_search: bool = Field(default=True, alias="HYBRID_SEARCH")
+    # RRF融合常数k（默认60，越小排名靠前权重越大）
+    rrf_k: int = Field(default=60, alias="RRF_K")
+    # 是否启用Cross-Encoder重排序
+    use_reranker: bool = Field(default=True, alias="USE_RERANKER")
+    # 重排序模型名称
+    reranker_model: str = Field(
+        default="BAAI/bge-reranker-v2-m3",
+        alias="RERANKER_MODEL",
+    )
+    # 每文档最多保留的chunk数（去重策略）
+    max_chunks_per_doc: int = Field(default=2, alias="MAX_CHUNKS_PER_DOC")
+    # 相似度阈值
+    score_threshold: float = Field(default=0.3, alias="SCORE_THRESHOLD")
+    # 默认返回结果数
+    default_top_k: int = Field(default=5, alias="DEFAULT_TOP_K")
+    # 是否启用查询改写（口语→书面语，补充上下文）
+    use_query_rewrite: bool = Field(default=False, alias="USE_QUERY_REWRITE")
+    # 是否启用多查询分解（复杂查询拆分为子查询）
+    use_query_decompose: bool = Field(default=False, alias="USE_QUERY_DECOMPOSE")
+
+    class Config:
+        env_file = ".env"
+        extra = "ignore"
+
+
 class AppSettings(BaseSettings):
     """应用全局配置"""
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
@@ -87,6 +116,7 @@ class AppSettings(BaseSettings):
     embedding: EmbeddingSettings = EmbeddingSettings()
     vector_db: VectorDBSettings = VectorDBSettings()
     api: APISettings = APISettings()
+    retrieval: RetrievalSettings = RetrievalSettings()
 
     class Config:
         env_file = ".env"
@@ -101,5 +131,7 @@ def ensure_dirs():
     """确保所有必要目录存在"""
     RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
+    BM25_INDEX_DIR = DATA_DIR / "bm25"
+    BM25_INDEX_DIR.mkdir(parents=True, exist_ok=True)
     for subdir in ["html", "pdf", "images", "other"]:
         (RAW_DATA_DIR / subdir).mkdir(parents=True, exist_ok=True)

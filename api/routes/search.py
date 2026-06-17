@@ -269,4 +269,5 @@ def _to_result_item(r: SearchResult) -> ResultItem:
         doc_id=r.doc_id,
         chunk_index=r.chunk_index,
         total_chunks=r.total_chunks,
+        score_source=r.score_source,
     )
